@@ -1,5 +1,5 @@
-name: ➕ Dodaj wariant tytułu
-description: Dodaj nowy duplikat z innym tytułem do feedu Google Shopping
+name: Dodaj wariant tytulu
+description: Dodaj nowy duplikat z innym tytulem do feedu Google Shopping
 title: "[WARIANT] "
 labels:
   - new-variant
@@ -7,25 +7,25 @@ body:
   - type: markdown
     attributes:
       value: |
-        ## Wypełnij 4 pola i kliknij Submit
+        ## Wypelnij 4 pola i kliknij Submit
 
         Po submission:
-        1. Skrypt **automatycznie doda regułę** do config.json
-        2. **Feed się zregeneruje** w ciągu 1h (lub uruchom workflow ręcznie)
-        3. **Ten issue zostanie zamknięty** z potwierdzeniem
+        1. Skrypt **automatycznie doda regule** do config.json
+        2. **Feed sie zregeneruje** w ciagu 1h (lub uruchom workflow recznie)
+        3. **Ten issue zostanie zamkniety** z potwierdzeniem
 
         ---
 
   - type: input
     id: match_in_title
     attributes:
-      label: 🎯 Grupa produktów (Match w tytule)
+      label: Grupa produktow
       description: |
-        Skrypt znajdzie WSZYSTKIE produkty których tytuł zawiera ten string (case-insensitive).
-        Przykłady które masz w katalogu Room99 — wpisz dokładnie:
-        - `GARDEN LINE` (72 produkty — zasłony ogrodowe)
-        - `MARSHMALLOW` (poszewki dekoracyjne)
-        - `BIANCA` (zasłony welurowe)
+        Skrypt znajdzie WSZYSTKIE produkty ktorych tytul zawiera ten string (case-insensitive).
+        Przyklady ktore masz w katalogu Room99 - wpisz dokladnie:
+        - GARDEN LINE (72 produkty - zaslony ogrodowe)
+        - MARSHMALLOW (poszewki dekoracyjne)
+        - BIANCA (zaslony welurowe)
       placeholder: GARDEN LINE
     validations:
       required: true
@@ -33,38 +33,38 @@ body:
   - type: input
     id: search_in_title
     attributes:
-      label: 🔍 Szukaj w tytule
+      label: Szukaj w tytule
       description: |
-        Tekst który zostanie zastąpiony w tytule duplikatu.
-        Np. jeśli oryginalny title = "ZASŁONA NA TARAS GARDEN LINE - Beżowa", a tu wpiszesz "ZASŁONA NA TARAS",
-        to w duplikacie ten fragment będzie podmieniony.
-      placeholder: ZASŁONA NA TARAS
+        Tekst ktory zostanie zastapiony w tytule duplikatu.
+        Np. jesli oryginalny title = "ZASLONA NA TARAS GARDEN LINE - Bezowa", a tu wpiszesz "ZASLONA NA TARAS",
+        to w duplikacie ten fragment bedzie podmieniony.
+      placeholder: ZASLONA NA TARAS
     validations:
       required: true
 
   - type: input
     id: replace_with
     attributes:
-      label: ✏️ Zastąp przez
+      label: Zastap przez
       description: |
-        Nowy tekst który pojawi się w tytule duplikatu zamiast 'Szukaj w tytule'.
-        Pomysły dla testów A/B/C:
-        - `ZASŁONA NIEPRZEMAKALNA`
-        - `ZASŁONA DO ALTANY`
-        - `MARKIZA OGRODOWA`
-      placeholder: ZASŁONA DO ALTANY
+        Nowy tekst ktory pojawi sie w tytule duplikatu zamiast 'Szukaj w tytule'.
+        Pomysly dla testow A/B/C:
+        - ZASLONA NIEPRZEMAKALNA
+        - ZASLONA DO ALTANY
+        - MARKIZA OGRODOWA
+      placeholder: ZASLONA DO ALTANY
     validations:
       required: true
 
   - type: input
     id: dup_suffix
     attributes:
-      label: 🏷️ Identyfikator wariantu (krótki, unikalny)
+      label: Sufiks ID
       description: |
-        Zostanie dodany do `id` duplikata (np. `9491` → `9491_t6`) oraz do `custom_label_1`
-        żebyś mógł segmentować w Google Ads.
-        Używaj **krótkich** nazw bez spacji: t1, t2, m1, b1, etc.
-        Sprawdź w config.json że nie kolizjonuje z istniejącymi sufiksami.
+        Zostanie dodany do `id` duplikata (np. `9491` -> `9491_t6`) oraz do `custom_label_1`
+        zebys mogl segmentowac w Google Ads.
+        Uzywaj **krotkich** nazw bez spacji: t1, t2, m1, b1, etc.
+        Sprawdz w config.json ze nie koliduje z istniejacymi sufiksami.
       placeholder: t6
     validations:
       required: true
@@ -72,9 +72,9 @@ body:
   - type: textarea
     id: notes
     attributes:
-      label: 📝 Notatka (opcjonalna)
+      label: Notatka
       description: Po co testujesz ten wariant? Hipoteza? Source keywordu?
       placeholder: |
-        Hipoteza: konkurenci używają "ZASŁONA NA TARASU" — sprawdzamy czy SEO bardziej lubi tę formę.
+        Hipoteza: konkurenci uzywaja "ZASLONA NA TARASU" - sprawdzamy czy SEO bardziej lubi te forme.
     validations:
       required: false
