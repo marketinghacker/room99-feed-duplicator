@@ -1,0 +1,15 @@
+{
+  "name": "room99-feed-duplicator",
+  "version": "1.0.0",
+  "description": "Pobiera feed Google PL z FeedOptimise i dodaje duplikaty produktow z roznymi tytulami (A/B testing) dla Google Shopping. Zero kosztow w FeedOptimise.",
+  "main": "generate-feed.js",
+  "scripts": {
+    "generate": "node generate-feed.js",
+    "serve": "node serve.js",
+    "test": "echo 'Test: download feed and verify duplicates' && node generate-feed.js && node -e \"const fs=require('fs');const out=fs.readFileSync('output/google-pl-with-test-titles.tsv','utf-8').split('\\n');console.log('Total rows:',out.length-1);console.log('Sample dup:',out.find(l=>l.includes('_t1')));\""
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=18"
+  }
+}
