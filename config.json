@@ -1,11 +1,8 @@
 {
   "_comment": "Configuration for Room99 Feed Duplicator. Edit duplicateRules to add/remove keyword variants. Save = next cron tick picks up changes.",
-
   "feedSourceUrl": "https://io.feedoptimise.com/feed/1805/3809/507fc39b-dc19-4f5d-9107-db1900f6bb21/google-pl.tsv",
   "feedOutputFile": "output/google-pl-with-test-titles.tsv",
-
   "_comment_rules": "Reguly duplikacji. Skrypt znajduje produkty gdzie title pasuje do matchInTitle, generuje duplikat z searchInTitle -> replaceWith. Dodaj/usun reguly bez restartu - nastepny cron tick je zauwazy.",
-
   "duplicateRules": [
     {
       "id": "garden-t1-altany",
@@ -56,11 +53,19 @@
       "customLabel1": "t5",
       "active": true,
       "notes": "Test #5 — use case 'pergola'"
+    },
+    {
+      "id": "issue-2-t6",
+      "matchInTitle": "ZASŁONA ZACIEMNIAJĄCA",
+      "searchInTitle": "ZASŁONA ZACIEMNIAJĄCA",
+      "replaceWith": "Zasłona blackout",
+      "dupSuffix": "t6",
+      "customLabel1": "t6",
+      "active": true,
+      "notes": "Auto-added from issue #2"
     }
   ],
-
   "_comment_audit": "Reguly poprawek z audytora: kazdy duplikat MUSI miec gtin/mpn puste oraz identifier_exists=no, zeby GMC nie zglosil 'Duplicate product'.",
-
   "duplicateFieldOverrides": {
     "gtin": "",
     "mpn": "",
