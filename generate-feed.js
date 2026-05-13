@@ -73,12 +73,24 @@ function buildTSVLine(row, headers) {
   }).join('\t');
 }
 
+// Word Capitalize — pierwsza litera każdego słowa wielka, reszta mała.
+// Zachowuje rozmiary 155x270 (małe x między cyframi), bo używa negative lookbehind:
+// litera musi być NIE poprzedzona przez literę ANI cyfrę.
+function wordCapitalize(s) {
+  if (!s) return '';
+  return String(s)
+    .toLowerCase()
+    .replace(/(?<![\p{L}\d])(\p{L})(\p{L}*)/gu, (m, first, rest) => first.toUpperCase() + rest);
+}
+
 function generateDuplicate(parent, rule) {
   const dup = { ...parent };
   dup.id = `${parent.id}_${rule.dupSuffix}`;
 
   const searchRegex = new RegExp(escapeRegExp(rule.searchInTitle), 'i');
-  dup.title = String(parent.title || '').replace(searchRegex, rule.replaceWith);
+  let newTitle = String(parent.title || '').replace(searchRegex, rule.replaceWith);
+  // Normalize case (pierwsza litera kazdego slowa wielka) - spojny styl tytulow
+  dup.title = wordCapitalize(newTitle);
 
   return dup;
 }
@@ -119,8 +131,18 @@ async function main() {
   const matchStats = {};
   const duplicatedProducts = new Set();
 
+  let skippedOutOfStock = 0;
   for (const row of originalRows) {
     const title = row.title || '';
+    const availability = (row.availability || '').toLowerCase();
+
+    // Filter: tylko produkty in stock (nie generujemy duplikatow out-of-stock)
+    if (availability && availability !== 'in stock' && availability !== 'in_stock') {
+      // Sprawdz czy produkt by sie kwalifikowal do duplikacji, ale jest out-of-stock
+      const wouldDuplicate = activeRules.some(r => new RegExp(escapeRegExp(r.matchInTitle), 'i').test(title));
+      if (wouldDuplicate) skippedOutOfStock++;
+      continue;
+    }
 
     for (const rule of activeRules) {
       const matchRegex = new RegExp(escapeRegExp(rule.matchInTitle), 'i');
@@ -137,6 +159,9 @@ async function main() {
         duplicatedProducts.add(row.id);
       }
     }
+  }
+  if (skippedOutOfStock > 0) {
+    log(`Skipped ${skippedOutOfStock} out-of-stock parent matches (no duplicates generated for those)`);
   }
 
   log('Match stats per rule:');
@@ -158,16 +183,15 @@ async function main() {
     newHeaders.push('custom_label_1');
   }
 
-  // Write output
+  // Write output - TYLKO duplikaty (nie cały feed; oryginaly idą do GMC z głównego feeda Google PL)
   log('Writing output:', outputPath);
   const outputLines = [
     newHeaders.join('\t'),
-    ...originalRows.map(r => buildTSVLine(r, newHeaders)),
     ...duplicates.map(r => buildTSVLine(r, newHeaders))
   ];
 
   fs.writeFileSync(outputPath, outputLines.join('\n'), 'utf-8');
-  log(`OUTPUT: ${originalRows.length} originals + ${duplicates.length} duplicates = ${originalRows.length + duplicates.length} total rows`);
+  log(`OUTPUT: ${duplicates.length} duplikatów (sam plik bez oryginałów - oryginały idą z głównego feeda Google PL w GMC)`);
 
   // Pokaz pierwsze 3 duplikaty jako sample
   if (duplicates.length > 0) {
