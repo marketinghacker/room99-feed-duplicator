@@ -1,9 +1,9 @@
 name: Handle New Variant Issue
-
+ 
 on:
   issues:
     types: [opened]
-
+ 
 jobs:
   process:
     if: contains(github.event.issue.labels.*.name, 'new-variant')
@@ -11,16 +11,16 @@ jobs:
     permissions:
       contents: write
       issues: write
-
+ 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
+ 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '24'
-
+ 
       - name: Parse issue and update config.json
         id: parse
         env:
@@ -31,7 +31,7 @@ jobs:
           const fs = require('fs');
           const body = process.env.ISSUE_BODY || '';
           const issueNum = process.env.ISSUE_NUMBER;
-
+ 
           function extractField(label) {
             // GitHub Issue Forms output format: "### Label\n\nValue\n\n### NextLabel"
             const labelEscaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -43,28 +43,28 @@ jobs:
             if (v === '_No response_') return '';
             return v;
           }
-
-          const matchInTitle = extractField('🎯 Grupa produktów \\(Match w tytule\\)');
-          const searchInTitle = extractField('🔍 Szukaj w tytule');
-          const replaceWith = extractField('✏️ Zastąp przez');
-          const dupSuffix = extractField('🏷️ Identyfikator wariantu \\(krótki, unikalny\\)');
-          const notes = extractField('📝 Notatka \\(opcjonalna\\)') || '';
-
+ 
+          const matchInTitle = extractField('Grupa produktow');
+          const searchInTitle = extractField('Szukaj w tytule');
+          const replaceWith = extractField('Zastap przez');
+          const dupSuffix = extractField('Sufiks ID');
+          const notes = extractField('Notatka') || '';
+ 
           if (!matchInTitle || !searchInTitle || !replaceWith || !dupSuffix) {
             console.error('Missing required fields:', { matchInTitle, searchInTitle, replaceWith, dupSuffix });
             process.exit(1);
           }
-
+ 
           const config = JSON.parse(fs.readFileSync('config.json', 'utf-8'));
           config.duplicateRules = config.duplicateRules || [];
-
+ 
           // Sprawdź czy dupSuffix już istnieje
           if (config.duplicateRules.some(r => r.dupSuffix === dupSuffix && r.active)) {
             console.error('Suffix already exists:', dupSuffix);
             console.error('Wybierz inny w issue lub dezaktywuj poprzedni.');
             process.exit(2);
           }
-
+ 
           const newRule = {
             id: `issue-${issueNum}-${dupSuffix}`,
             matchInTitle,
@@ -75,11 +75,11 @@ jobs:
             active: true,
             notes: notes ? `From issue #${issueNum}: ${notes}` : `Auto-added from issue #${issueNum}`
           };
-
+ 
           config.duplicateRules.push(newRule);
           fs.writeFileSync('config.json', JSON.stringify(config, null, 2) + '\n');
           console.log('Added rule:', newRule.id);
-
+ 
           // Output for GitHub Step Summary
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY || '/dev/null',
             `## Dodano nowy wariant\n\n` +
@@ -91,7 +91,7 @@ jobs:
           );
           SCRIPT
           node /tmp/parse.js
-
+ 
       - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
@@ -99,9 +99,9 @@ jobs:
           git add config.json
           git commit -m "feat: add variant from issue #${{ github.event.issue.number }}" || true
           git push
-
+ 
       - name: Comment on issue and close
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             await github.rest.issues.createComment({
@@ -116,10 +116,10 @@ jobs:
               repo: context.repo.repo,
               state: 'closed'
             });
-
+ 
       - name: Comment on issue (if failed)
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             await github.rest.issues.createComment({
