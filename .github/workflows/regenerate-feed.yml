@@ -1,0 +1,41 @@
+name: Regenerate Feed (cron)
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # co 1h, na początku każdej godziny
+  workflow_dispatch:       # manualny trigger przyciskiem w GitHub UI
+  push:
+    branches: [main]
+    paths:
+      - 'config.json'      # zmiana keywords = re-run natychmiast
+      - 'generate-feed.js'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # potrzebne do commit output zmian
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Run feed generator
+        run: node generate-feed.js
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add output/
+          if git diff --staged --quiet; then
+            echo "No changes - feed identical"
+          else
+            git commit -m "chore: auto-regenerate feed $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
