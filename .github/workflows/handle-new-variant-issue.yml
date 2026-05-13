@@ -1,0 +1,130 @@
+name: Handle New Variant Issue
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  process:
+    if: contains(github.event.issue.labels.*.name, 'new-variant')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Parse issue and update config.json
+        id: parse
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          cat > /tmp/parse.js << 'SCRIPT'
+          const fs = require('fs');
+          const body = process.env.ISSUE_BODY || '';
+          const issueNum = process.env.ISSUE_NUMBER;
+
+          function extractField(label) {
+            // GitHub Issue Forms output format: "### Label\n\nValue\n\n### NextLabel"
+            const labelEscaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const re = new RegExp('###\\s*' + labelEscaped + '\\s*\\n+([\\s\\S]*?)(?=\\n###|$)', 'i');
+            const m = body.match(re);
+            if (!m) return null;
+            let v = m[1].trim();
+            // GitHub puts "_No response_" when textarea is empty
+            if (v === '_No response_') return '';
+            return v;
+          }
+
+          const matchInTitle = extractField('🎯 Grupa produktów \\(Match w tytule\\)');
+          const searchInTitle = extractField('🔍 Szukaj w tytule');
+          const replaceWith = extractField('✏️ Zastąp przez');
+          const dupSuffix = extractField('🏷️ Identyfikator wariantu \\(krótki, unikalny\\)');
+          const notes = extractField('📝 Notatka \\(opcjonalna\\)') || '';
+
+          if (!matchInTitle || !searchInTitle || !replaceWith || !dupSuffix) {
+            console.error('Missing required fields:', { matchInTitle, searchInTitle, replaceWith, dupSuffix });
+            process.exit(1);
+          }
+
+          const config = JSON.parse(fs.readFileSync('config.json', 'utf-8'));
+          config.duplicateRules = config.duplicateRules || [];
+
+          // Sprawdź czy dupSuffix już istnieje
+          if (config.duplicateRules.some(r => r.dupSuffix === dupSuffix && r.active)) {
+            console.error('Suffix already exists:', dupSuffix);
+            console.error('Wybierz inny w issue lub dezaktywuj poprzedni.');
+            process.exit(2);
+          }
+
+          const newRule = {
+            id: `issue-${issueNum}-${dupSuffix}`,
+            matchInTitle,
+            searchInTitle,
+            replaceWith,
+            dupSuffix,
+            customLabel1: dupSuffix,
+            active: true,
+            notes: notes ? `From issue #${issueNum}: ${notes}` : `Auto-added from issue #${issueNum}`
+          };
+
+          config.duplicateRules.push(newRule);
+          fs.writeFileSync('config.json', JSON.stringify(config, null, 2) + '\n');
+          console.log('Added rule:', newRule.id);
+
+          // Output for GitHub Step Summary
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY || '/dev/null',
+            `## Dodano nowy wariant\n\n` +
+            `- **Match:** ${matchInTitle}\n` +
+            `- **Search:** ${searchInTitle}\n` +
+            `- **Replace:** ${replaceWith}\n` +
+            `- **Suffix:** ${dupSuffix}\n` +
+            `- **Notes:** ${notes}\n`
+          );
+          SCRIPT
+          node /tmp/parse.js
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add config.json
+          git commit -m "feat: add variant from issue #${{ github.event.issue.number }}" || true
+          git push
+
+      - name: Comment on issue and close
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Wariant został dodany do \`config.json\`.\n\nFeed zregeneruje się automatycznie w ciągu max 1h (cron uruchamia się co godzinę), lub uruchom natychmiast: [Run Regenerate Feed workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/regenerate-feed.yml).`
+            });
+            await github.rest.issues.update({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed'
+            });
+
+      - name: Comment on issue (if failed)
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Nie udało się przetworzyć tego issue. Sprawdź logi: https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\nNajczęstsze przyczyny:\n- Sufiks już istnieje (wybierz inny)\n- Brakuje wypełnionego pola w formularzu`
+            });
