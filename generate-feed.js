@@ -102,6 +102,24 @@ function applyOverrides(row, overrides) {
   return row;
 }
 
+function generateImageDuplicate(parent, imageRule, parentImages) {
+  // Returns a duplicate row with image_link swapped per imageRule.
+  // parentImages: { main: <image_link>, additional: [<url>, <url>...] }
+  const dup = { ...parent };
+  dup.id = `${parent.id}_${imageRule.dupSuffix}`;
+
+  if (imageRule.custom_image_url) {
+    dup.image_link = imageRule.custom_image_url;
+  } else if (imageRule.promote_to_main_index !== null && imageRule.promote_to_main_index !== undefined) {
+    // index 0 = current main (no-op), index >=1 = additional_image_link[index-1]
+    const idx = parseInt(imageRule.promote_to_main_index, 10);
+    if (idx > 0 && parentImages.additional[idx - 1]) {
+      dup.image_link = parentImages.additional[idx - 1];
+    }
+  }
+  return dup;
+}
+
 async function main() {
   log('=== Room99 Feed Duplicator START ===');
 
@@ -169,7 +187,40 @@ async function main() {
     log(`  ${ruleId}: ${count} duplicates`);
   }
   log(`Unique parent products duplicated: ${duplicatedProducts.size}`);
-  log(`Total duplicates generated: ${duplicates.length}`);
+  log(`Total title duplicates generated: ${duplicates.length}`);
+
+  // === IMAGE RULES (Sprint 3, gated by feature_flag) ===
+  // Each image rule references an existing offerId. We find that product in
+  // originalRows, create a duplicate with same fields but with image_link
+  // swapped to either an additional_image_link[N] OR a custom_image_url.
+  // Same field overrides (gtin/mpn empty, identifier_exists=no, custom_label_2=TITLE_TEST).
+  const imageRulesEnabled = !!(config.feature_flags && config.feature_flags.image_rules_enabled);
+  const imageRules = Array.isArray(config.imageRules) ? config.imageRules.filter((r) => r.active !== false) : [];
+
+  if (imageRulesEnabled && imageRules.length > 0) {
+    log(`Image rules enabled — processing ${imageRules.length} active image rules`);
+    let imageDupCount = 0;
+    for (const imageRule of imageRules) {
+      const parent = originalRows.find((r) => r.id === String(imageRule.offerId));
+      if (!parent) {
+        log(`  WARN: offerId ${imageRule.offerId} not found in source feed — skipping`);
+        continue;
+      }
+      const additional = (parent.additional_image_link || '').split(',').map((s) => s.trim()).filter(Boolean);
+      const dup = generateImageDuplicate(parent, imageRule, { main: parent.image_link || '', additional });
+      applyOverrides(dup, config.duplicateFieldOverrides || {});
+      if (imageRule.customLabel1) dup.custom_label_1 = imageRule.customLabel1;
+      // Always mark image-rule duplicates separately
+      dup.custom_label_3 = 'IMAGE_TEST';
+      duplicates.push(dup);
+      imageDupCount++;
+    }
+    log(`Image duplicates generated: ${imageDupCount}`);
+  } else if (imageRules.length > 0) {
+    log(`Image rules present (${imageRules.length}) but feature_flags.image_rules_enabled=false — skipping. Flip flag in config.json to activate.`);
+  }
+
+  log(`Total duplicates (title + image) generated: ${duplicates.length}`);
 
   // Ensure new headers exist
   const newHeaders = [...headers];
