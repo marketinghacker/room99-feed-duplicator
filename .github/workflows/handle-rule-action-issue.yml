@@ -69,10 +69,16 @@ jobs:
           } else if (action === 'edit') {
             const r = config.duplicateRules.find(x => x.id === ruleId);
             if (!r) { console.error('Rule not found:', ruleId); process.exit(2); }
-            const allowed = ['matchInTitle', 'searchInTitle', 'replaceWith', 'dupSuffix', 'notes', 'active'];
+            const allowed = ['matchInTitle', 'searchInTitle', 'replaceWith', 'dupSuffix', 'notes', 'active', 'testType', 'descriptionOverride'];
             const applied = {};
             for (const k of allowed) {
               if (changes && changes[k] !== undefined) {
+                // Treat empty descriptionOverride as removal
+                if (k === 'descriptionOverride' && (!changes[k] || !String(changes[k]).trim())) {
+                  delete r.descriptionOverride;
+                  applied[k] = '(removed)';
+                  continue;
+                }
                 r[k] = changes[k];
                 applied[k] = changes[k];
                 if (k === 'dupSuffix' && (!r.customLabel1 || r.customLabel1 === r.dupSuffix)) {

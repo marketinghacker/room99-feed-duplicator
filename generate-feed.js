@@ -113,14 +113,53 @@ function wordCapitalize(s) {
     .replace(/(?<![\p{L}\d])(\p{L})(\p{L}*)/gu, (m, first, rest) => first.toUpperCase() + rest);
 }
 
+// Title + opcjonalnie description swap.
+//
+// rule.testType (NEW, optional):
+//   'title'       — domyślne (jak dotąd); tylko podmiana tytułu
+//   'description' — bez zmiany tytułu, podmiana opisu
+//   'both'        — podmiana tytułu I opisu
+//
+// rule.descriptionOverride (NEW, optional):
+//   Pełny nowy opis (max 4950 chars dla limitu Google PLA 5000). Gdy obecny,
+//   nadpisuje całkowicie. Gdy null/brak → dla testType='description'|'both' system
+//   stosuje search/replace z searchInTitle→replaceWith na polu description
+//   (zgodnie z intencją Marcina: ta sama fraza wstrzykiwana częściej w opis).
+//
+// Backward compat: rules bez testType → 'title' (zero zmian dla T1-T7).
 function generateDuplicate(parent, rule) {
   const dup = { ...parent };
   dup.id = `${parent.id}_${rule.dupSuffix}`;
 
-  const searchRegex = new RegExp(escapeRegExp(rule.searchInTitle), 'i');
-  let newTitle = String(parent.title || '').replace(searchRegex, rule.replaceWith);
-  // Normalize case (pierwsza litera kazdego slowa wielka) - spojny styl tytulow
-  dup.title = wordCapitalize(newTitle);
+  const testType = rule.testType || 'title';
+  const DESC_MAX = 4950; // Google PLA limit 5000 — safety margin
+
+  // ─── Title swap ───────────────────────────────────────────────────────
+  if (testType === 'title' || testType === 'both') {
+    const searchRegex = new RegExp(escapeRegExp(rule.searchInTitle), 'i');
+    let newTitle = String(parent.title || '').replace(searchRegex, rule.replaceWith);
+    // Normalize case (pierwsza litera każdego słowa wielka) — spójny styl
+    dup.title = wordCapitalize(newTitle);
+  }
+  // testType === 'description' → tytuł zostaje = parent.title (bez zmian)
+
+  // ─── Description swap ─────────────────────────────────────────────────
+  if (testType === 'description' || testType === 'both') {
+    const parentDesc = String(parent.description || '');
+    let newDesc;
+    if (rule.descriptionOverride && String(rule.descriptionOverride).trim()) {
+      // Pełny override — używamy verbatim (przycięte do limitu)
+      newDesc = String(rule.descriptionOverride).slice(0, DESC_MAX);
+    } else if (rule.searchInTitle && rule.replaceWith) {
+      // Fallback: ten sam search/replace co tytuł, ale na opisie i GLOBALNY (wszystkie wystąpienia)
+      const searchRegex = new RegExp(escapeRegExp(rule.searchInTitle), 'ig');
+      newDesc = parentDesc.replace(searchRegex, rule.replaceWith).slice(0, DESC_MAX);
+    } else {
+      // No override, no search term → opis bez zmian (defensive)
+      newDesc = parentDesc;
+    }
+    dup.description = newDesc;
+  }
 
   return dup;
 }
