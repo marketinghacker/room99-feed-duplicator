@@ -95,6 +95,17 @@
       "notes": "Image variant img_g — promotes additional_image_link[6] as main",
       "created_at": "2026-05-14T01:47:37.466Z",
       "active": true
+    },
+    {
+      "id": "img-9491-img_qa",
+      "offerId": "9491",
+      "promote_to_main_index": 2,
+      "custom_image_url": null,
+      "dupSuffix": "img_qa",
+      "customLabel1": "img_qa",
+      "notes": "",
+      "created_at": "2026-05-14T16:46:55.679Z",
+      "active": true
     }
   ],
   "_lastTouched": "2026-05-14T01:55:27.962Z",
