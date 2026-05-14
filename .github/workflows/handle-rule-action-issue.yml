@@ -11,6 +11,7 @@ jobs:
     permissions:
       contents: write
       issues: write
+      actions: write
 
     steps:
       - name: Checkout
@@ -135,6 +136,15 @@ jobs:
           git add config.json
           git commit -m "chore(rule-action): apply issue #${{ github.event.issue.number }}" || true
           git push
+
+      # Explicitly trigger regenerate-feed.yml because pushes by GITHUB_TOKEN
+      # don't auto-trigger other workflows (anti-loop protection). workflow_dispatch
+      # IS allowed from GITHUB_TOKEN, so this works.
+      - name: Trigger feed regenerate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run regenerate-feed.yml --ref main || echo "dispatch failed, will rely on cron"
 
       - name: Comment success + close
         uses: actions/github-script@v8
