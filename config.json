@@ -19,11 +19,12 @@
       "id": "garden-t2-nieprzemakalna",
       "matchInTitle": "GARDEN LINE",
       "searchInTitle": "ZASŁONA NA TARAS",
-      "replaceWith": "ZASŁONA NIEPRZEMAKALNA",
+      "replaceWith": "Zasłona nieprzemakalna",
       "dupSuffix": "t2",
       "customLabel1": "t2",
       "active": true,
-      "notes": "Test #2 — feature emphasis 'waterproof'"
+      "notes": "Test #2 — feature emphasis 'waterproof'",
+      "updated_at": "2026-05-14T01:46:29.054Z"
     },
     {
       "id": "garden-t3-wodoszczelna",
