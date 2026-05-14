@@ -11,9 +11,9 @@
       "replaceWith": "ZASŁONA DO ALTANY",
       "dupSuffix": "t1",
       "customLabel1": "t1",
-      "active": false,
+      "active": true,
       "notes": "Test edit via panel — auto-fallback should work even with limited PAT scope. Timestamp: 2026-05-14T01:24:42Z",
-      "updated_at": "2026-05-14T16:25:45.280Z"
+      "updated_at": "2026-05-14T16:28:27.239Z"
     },
     {
       "id": "garden-t2-nieprzemakalna",
