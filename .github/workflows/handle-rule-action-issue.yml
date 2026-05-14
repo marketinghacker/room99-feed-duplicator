@@ -1,0 +1,166 @@
+name: Handle Rule Action Issue
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  process:
+    if: contains(github.event.issue.labels.*.name, 'rule-action')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Parse and apply
+        id: apply
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          cat > /tmp/apply.js << 'SCRIPT'
+          const fs = require('fs');
+          const body = process.env.ISSUE_BODY || '';
+          const issueNum = process.env.ISSUE_NUMBER;
+
+          // Issue body contains a JSON block in ```json ... ``` fenced code
+          const m = body.match(/```json\s*\n([\s\S]*?)\n```/);
+          if (!m) {
+            console.error('No JSON block found in issue body');
+            process.exit(1);
+          }
+          let payload;
+          try {
+            payload = JSON.parse(m[1]);
+          } catch (e) {
+            console.error('Invalid JSON:', e.message);
+            process.exit(1);
+          }
+
+          const { action, ruleId, changes, imageRule, ruleData } = payload;
+          const config = JSON.parse(fs.readFileSync('config.json', 'utf-8'));
+          config.duplicateRules = config.duplicateRules || [];
+          config.imageRules = config.imageRules || [];
+
+          let summary = '';
+
+          if (action === 'toggle') {
+            const r = config.duplicateRules.find(x => x.id === ruleId);
+            if (!r) { console.error('Rule not found:', ruleId); process.exit(2); }
+            r.active = !r.active;
+            r.updated_at = new Date().toISOString();
+            summary = `Toggled **${ruleId}** → \`active=${r.active}\``;
+          } else if (action === 'set_active') {
+            const r = config.duplicateRules.find(x => x.id === ruleId);
+            if (!r) { console.error('Rule not found:', ruleId); process.exit(2); }
+            r.active = !!payload.active;
+            r.updated_at = new Date().toISOString();
+            summary = `Set **${ruleId}** \`active=${r.active}\``;
+          } else if (action === 'edit') {
+            const r = config.duplicateRules.find(x => x.id === ruleId);
+            if (!r) { console.error('Rule not found:', ruleId); process.exit(2); }
+            const allowed = ['matchInTitle', 'searchInTitle', 'replaceWith', 'dupSuffix', 'notes', 'active'];
+            const applied = {};
+            for (const k of allowed) {
+              if (changes && changes[k] !== undefined) {
+                r[k] = changes[k];
+                applied[k] = changes[k];
+                if (k === 'dupSuffix' && (!r.customLabel1 || r.customLabel1 === r.dupSuffix)) {
+                  r.customLabel1 = changes[k];
+                }
+              }
+            }
+            r.updated_at = new Date().toISOString();
+            summary = `Edited **${ruleId}**: ${Object.keys(applied).join(', ')}`;
+          } else if (action === 'delete') {
+            const idx = config.duplicateRules.findIndex(x => x.id === ruleId);
+            if (idx === -1) { console.error('Rule not found:', ruleId); process.exit(2); }
+            config.duplicateRules.splice(idx, 1);
+            summary = `Deleted **${ruleId}**`;
+          } else if (action === 'create') {
+            if (!ruleData || !ruleData.id || !ruleData.matchInTitle) {
+              console.error('Invalid ruleData'); process.exit(1);
+            }
+            // Validate dupSuffix uniqueness
+            if (ruleData.dupSuffix && config.duplicateRules.some(r => r.dupSuffix === ruleData.dupSuffix)) {
+              console.error('dupSuffix collision:', ruleData.dupSuffix); process.exit(3);
+            }
+            ruleData.created_at = new Date().toISOString();
+            if (ruleData.active === undefined) ruleData.active = true;
+            config.duplicateRules.push(ruleData);
+            summary = `Created rule **${ruleData.id}** (${ruleData.dupSuffix})`;
+          } else if (action === 'regenerate_touch') {
+            config._lastTouched = new Date().toISOString();
+            config._lastTouchedBy = `issue-${issueNum}-regenerate`;
+            summary = `Touched config.json → triggers regenerate-feed.yml via push event`;
+          } else if (action === 'add_image_rule') {
+            if (!imageRule || !imageRule.offerId) {
+              console.error('Invalid imageRule'); process.exit(1);
+            }
+            imageRule.created_at = new Date().toISOString();
+            if (imageRule.active === undefined) imageRule.active = true;
+            config.imageRules.push(imageRule);
+            summary = `Added image rule for offer **${imageRule.offerId}** → main = ${imageRule.promote_to_main_index !== undefined ? '#' + imageRule.promote_to_main_index : 'custom URL'}`;
+          } else if (action === 'remove_image_rule') {
+            const idx = config.imageRules.findIndex(x => x.id === payload.imageRuleId);
+            if (idx === -1) { console.error('Image rule not found'); process.exit(2); }
+            config.imageRules.splice(idx, 1);
+            summary = `Removed image rule **${payload.imageRuleId}**`;
+          } else {
+            console.error('Unknown action:', action);
+            process.exit(4);
+          }
+
+          fs.writeFileSync('config.json', JSON.stringify(config, null, 2) + '\n');
+          console.log('SUMMARY:', summary);
+
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY || '/dev/null',
+            `## Rule action applied\n\n${summary}\n\nIssue #${issueNum}\n`);
+          SCRIPT
+          node /tmp/apply.js
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add config.json
+          git commit -m "chore(rule-action): apply issue #${{ github.event.issue.number }}" || true
+          git push
+
+      - name: Comment success + close
+        uses: actions/github-script@v8
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Rule action applied to \`config.json\`.\n\nFeed regenerates within ≤1h (cron) or trigger now: [Run Regenerate Feed workflow](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/regenerate-feed.yml).`
+            });
+            await github.rest.issues.update({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed'
+            });
+
+      - name: Comment failure (no close)
+        if: failure()
+        uses: actions/github-script@v8
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Action failed. Logs: https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\nCommon causes:\n- Rule ID not found in current config.json\n- dupSuffix already exists (for create action)\n- Malformed JSON in issue body`
+            });
