@@ -29,11 +29,41 @@ function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function fetchUrl(url) {
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Retry-aware fetcher. FeedOptimise occasionally returns 429 (rate limit).
+// Strategy: 4 attempts with exponential backoff (5s, 20s, 60s, 120s).
+// Sends User-Agent so FO can identify us. Non-retryable errors fail fast.
+async function fetchUrl(url, attempt = 1) {
+  const MAX_ATTEMPTS = 4;
+  const BACKOFFS_MS = [5_000, 20_000, 60_000, 120_000]; // index = attempt-1
   return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
+    const opts = new URL(url);
+    const reqOpts = {
+      hostname: opts.hostname,
+      path: opts.pathname + opts.search,
+      headers: {
+        'User-Agent': 'room99-feed-duplicator/1.1 (+https://github.com/marketinghacker/room99-feed-duplicator)',
+        'Accept': 'text/tab-separated-values, text/plain, */*',
+      },
+    };
+    https.get(reqOpts, async (res) => {
       if (res.statusCode === 301 || res.statusCode === 302) {
-        return resolve(fetchUrl(res.headers.location));
+        return resolve(fetchUrl(res.headers.location, attempt));
+      }
+      if (res.statusCode === 429 || res.statusCode === 503) {
+        // Drain socket so it can be reused
+        res.resume();
+        if (attempt >= MAX_ATTEMPTS) {
+          return reject(new Error(`HTTP ${res.statusCode} after ${MAX_ATTEMPTS} attempts: ${url}`));
+        }
+        const wait = BACKOFFS_MS[attempt - 1];
+        const retryAfter = parseInt(res.headers['retry-after'], 10);
+        const waitMs = !isNaN(retryAfter) ? Math.max(wait, retryAfter * 1000) : wait;
+        log(`[retry] HTTP ${res.statusCode} on attempt ${attempt}/${MAX_ATTEMPTS}, sleeping ${Math.round(waitMs/1000)}s before retry…`);
+        await sleep(waitMs);
+        try { resolve(await fetchUrl(url, attempt + 1)); } catch (e) { reject(e); }
+        return;
       }
       if (res.statusCode !== 200) {
         return reject(new Error(`HTTP ${res.statusCode} for ${url}`));
@@ -172,6 +202,13 @@ async function main() {
           dup.custom_label_1 = rule.customLabel1;
         }
 
+        // custom_label_8 = kod testu (t1, t2, ...) — Marcin's dedicated test
+        // campaign [PLA] Zasłony Garden Line Testy Tytułów (ID 23840838231)
+        // ma 5 ad-groupów z inventory filter scoped na custom_label_8 = 'tN'.
+        // Bez tego pola duplikaty nie wpadają do tej kampanii (potwierdzone
+        // przez ad_group_criterion query agentem D, 2026-05-14).
+        dup.custom_label_8 = rule.dupSuffix;
+
         duplicates.push(dup);
         matchStats[rule.id] = (matchStats[rule.id] || 0) + 1;
         duplicatedProducts.add(row.id);
@@ -232,6 +269,9 @@ async function main() {
   }
   if (!newHeaders.includes('custom_label_1')) {
     newHeaders.push('custom_label_1');
+  }
+  if (!newHeaders.includes('custom_label_8')) {
+    newHeaders.push('custom_label_8');
   }
 
   // Write output - TYLKO duplikaty (nie cały feed; oryginaly idą do GMC z głównego feeda Google PL)

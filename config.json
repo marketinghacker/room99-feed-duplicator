@@ -78,11 +78,11 @@
     }
   ],
   "_comment_audit": "Reguly poprawek z audytora: kazdy duplikat MUSI miec gtin/mpn puste oraz identifier_exists=no, zeby GMC nie zglosil 'Duplicate product'.",
+  "_comment_custom_labels": "2026-05-14: usunieto custom_label_0='TITLE_TEST' override. Duplikaty zachowuja parent custom_label_0 (category np 'zaslony gotowe > zaslony 140x300') i custom_label_1 (collection 'garden line'). generate-feed.js automatycznie dodaje custom_label_8 = rule.dupSuffix (t1..t7) per regule. Tak dziala dedykowana kampania testowa Marcin'a [PLA] Zaslony Garden Line Testy Tytulow (ID 23840838231): 5 ad-groupow scoped na custom_label_8 = 't1'..'t5'.",
   "duplicateFieldOverrides": {
     "gtin": "",
     "mpn": "",
-    "identifier_exists": "no",
-    "custom_label_0": "TITLE_TEST"
+    "identifier_exists": "no"
   },
   "imageRules": [
     {
