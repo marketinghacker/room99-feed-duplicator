@@ -12,7 +12,8 @@
       "dupSuffix": "t1",
       "customLabel1": "t1",
       "active": true,
-      "notes": "Test #1 — alternative keyword 'altany' (gazebo)"
+      "notes": "Test edit via panel — auto-fallback should work even with limited PAT scope. Timestamp: 2026-05-14T01:24:42Z",
+      "updated_at": "2026-05-14T01:24:52.755Z"
     },
     {
       "id": "garden-t2-nieprzemakalna",
@@ -81,5 +82,6 @@
     "mpn": "",
     "identifier_exists": "no",
     "custom_label_0": "TITLE_TEST"
-  }
+  },
+  "imageRules": []
 }
