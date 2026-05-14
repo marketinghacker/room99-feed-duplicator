@@ -150,6 +150,11 @@ function generateImageDuplicate(parent, imageRule, parentImages) {
   return dup;
 }
 
+// Cached source path — używamy gdy FO 429 albo network down
+const CACHE_DIR = path.join(__dirname, 'cache');
+const CACHE_SOURCE_PATH = path.join(CACHE_DIR, 'feed-source-cached.tsv');
+const CACHE_META_PATH = path.join(CACHE_DIR, 'feed-source-cached.meta.json');
+
 async function main() {
   log('=== Room99 Feed Duplicator START ===');
 
@@ -160,11 +165,40 @@ async function main() {
 
   const outputPath = path.join(ROOT, config.feedOutputFile);
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.mkdirSync(CACHE_DIR, { recursive: true });
 
-  // Pobierz feed z publicznego URL FeedOptimise
+  // Pobierz feed z FO — z fallback do cached gdy 429/network
   log('Fetching feed from:', config.feedSourceUrl);
-  const tsvContent = await fetchUrl(config.feedSourceUrl);
-  log(`Downloaded ${tsvContent.length} bytes`);
+  let tsvContent;
+  let usedCache = false;
+  try {
+    tsvContent = await fetchUrl(config.feedSourceUrl);
+    log(`Downloaded ${tsvContent.length} bytes from FO`);
+    // Po udanym fetch — zapisz do cache
+    try {
+      fs.writeFileSync(CACHE_SOURCE_PATH, tsvContent);
+      fs.writeFileSync(CACHE_META_PATH, JSON.stringify({
+        fetched_at: new Date().toISOString(),
+        size_bytes: tsvContent.length,
+        source_url: config.feedSourceUrl,
+      }, null, 2) + '\n');
+      log(`[cache] saved cache/feed-source-cached.tsv (${tsvContent.length}b)`);
+    } catch (e) {
+      log(`[cache] WARN: could not write cache: ${e.message}`);
+    }
+  } catch (fetchErr) {
+    log(`[cache] FO fetch failed: ${fetchErr.message}`);
+    if (fs.existsSync(CACHE_SOURCE_PATH)) {
+      const meta = fs.existsSync(CACHE_META_PATH) ? JSON.parse(fs.readFileSync(CACHE_META_PATH, 'utf-8')) : {};
+      const age = meta.fetched_at ? `(cache age: ${Math.round((Date.now() - new Date(meta.fetched_at).getTime()) / 3600000)}h)` : '';
+      log(`[cache] USING CACHED SOURCE ${age}`);
+      tsvContent = fs.readFileSync(CACHE_SOURCE_PATH, 'utf-8');
+      usedCache = true;
+    } else {
+      throw new Error(`FO fetch failed AND no cache available: ${fetchErr.message}`);
+    }
+  }
+  if (usedCache) log('[cache] continuing with cached source — output będzie z poprzedniego snapshot FO');
 
   // Parse
   const { headers, rows: originalRows } = parseTSV(tsvContent);
