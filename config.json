@@ -84,5 +84,17 @@
     "identifier_exists": "no",
     "custom_label_0": "TITLE_TEST"
   },
-  "imageRules": []
+  "imageRules": [
+    {
+      "id": "img-8878-img_g",
+      "offerId": "8878",
+      "promote_to_main_index": 7,
+      "custom_image_url": null,
+      "dupSuffix": "img_g",
+      "customLabel1": "img_g",
+      "notes": "Image variant img_g — promotes additional_image_link[6] as main",
+      "created_at": "2026-05-14T01:47:37.466Z",
+      "active": true
+    }
+  ]
 }
