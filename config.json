@@ -22,9 +22,9 @@
       "replaceWith": "Zasłona nieprzemakalna",
       "dupSuffix": "t2",
       "customLabel1": "t2",
-      "active": true,
+      "active": false,
       "notes": "Test #2 — feature emphasis 'waterproof'",
-      "updated_at": "2026-05-14T01:46:29.054Z"
+      "updated_at": "2026-05-14T16:25:26.499Z"
     },
     {
       "id": "garden-t3-wodoszczelna",
